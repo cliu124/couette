@@ -44,16 +44,16 @@ def solve(tau_guess, C, gamma, M_r, Tr):
   T = sol.y[1]
   T += (1 - T[-1])                      # enforce boundary condition of T0(1) = 1
   eta = T ** (3/2) * (1 + C) / (T + C)  # calculate viscosity
-  # xi = 8.3144 * T / (28.97)             # calculate specific volume
+  xi = T * 8.3144 / (28.97)             # calculate specific volume
 
-  return sol.x, sol.y[0], T, eta#, xi  # y, U0, T, eta, xi
+  return sol.x, sol.y[0], T, eta, xi  # y, U0, T, eta, xi
 
 plt.figure(figsize=(8,7))
 
 # Plot curves for each mach number
 for M_r in M:
   Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature  
-  y, U0, T, eta = solve(tau_guess, C, gamma, M_r, Tr)    # solve
+  y, U0, T, eta, xi = solve(tau_guess, C, gamma, M_r, Tr)    # solve
 
   # Velocity
   plt.subplot(2, 2, 1)
@@ -76,7 +76,7 @@ for M_r in M:
   # Specific volume (xi)
   plt.subplot(2, 2, 3)
   plt.axis((1, 1.6, 0, 1))
-  plt.plot(eta, y, label=f'M0 = {M_r}')
+  plt.plot(T, y, label=f'M0 = {M_r}')
   plt.ylabel('y')
   plt.xlabel('Xi0')
   plt.title('Specific volume')
