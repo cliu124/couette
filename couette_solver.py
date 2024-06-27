@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 Pr = 0.72         # value for air
 gamma = 1.4       # value for air
 C = 0.5           # given
-tau_guess = 1     # Initial guess
+tau_guess = 1.5     # Initial guess
 M = [0.5, 1, 2]   # Mach numbers to test
 
 # Define system of equations
-def ode_system(y, state, tau, C, gamma, M_r):
-  U0, T = state
-  
+def ode_system(y, inputs, tau, C, gamma, M_r):
+  U0, T = inputs
+
   # Viscosity
   eta = T ** (3/2) * (1 + C) / (T + C)    # equation 14
-  
+
   # Derivatives
   dU0_dy = tau / eta                                        # equation 10
   dT_dy = -(Pr / eta) * ((gamma - 1) * M_r**2 * tau * U0)   # equation 11
@@ -39,12 +39,15 @@ def solve(tau_guess, C, gamma, M_r, Tr):
     lambda Xa, Xb: bc(Xa, Xb, tau_guess, C, gamma, M_r),
     y,
     X_guess,
-    max_nodes = len(y),
-    bc_tol=1e-8
+    max_nodes = len(y) * 100,
+    tol = 1e-12,
+    verbose = 2
   )
   
+  print(sol)
+  
   if not sol.success:
-    raise ValueError("Failed to find a solution")
+    raise Exception(sol.message) #ValueError("Failed to find a solution")
   
   T = sol.y[1]
   T += (1 - T[-1])                      # enforce boundary condition of T0(1) = 1
