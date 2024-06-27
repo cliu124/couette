@@ -29,14 +29,19 @@ def bc(Xa, Xb, tau, C, gamma, M_r):
   return np.array([U0a, U0b - 1])   # Returns the residuals of the boundary conditions U0(0) = 0, U0(1) = 1
 
 def solve(tau_guess, C, gamma, M_r, Tr):
-  y = np.linspace(0, 1, 1000)
+  y = np.linspace(0, 1, 1001)
   U0_guess = y                      # Linear guess for U0
   T_guess = np.full_like(y, Tr)     # Constant guess for T
   X_guess = np.vstack((U0_guess, T_guess))    
   
-  sol = solve_bvp(lambda y, X: ode_system(y, X, tau_guess, C, gamma, M_r),
-                  lambda Xa, Xb: bc(Xa, Xb, tau_guess, C, gamma, M_r),
-                  y, X_guess)
+  sol = solve_bvp(
+    lambda y, X: ode_system(y, X, tau_guess, C, gamma, M_r),
+    lambda Xa, Xb: bc(Xa, Xb, tau_guess, C, gamma, M_r),
+    y,
+    X_guess,
+    max_nodes = len(y),
+    bc_tol=1e-8
+  )
   
   if not sol.success:
     raise ValueError("Failed to find a solution")
@@ -50,15 +55,16 @@ def solve(tau_guess, C, gamma, M_r, Tr):
 
 plt.figure(figsize=(8,7))
 
+styles = ['solid', 'dashed', 'dotted']
 # Plot curves for each mach number
-for M_r in M:
+for i, M_r in enumerate(M):
   Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature  
   y, U0, T, eta, xi = solve(tau_guess, C, gamma, M_r, Tr)    # solve
 
   # Velocity
   plt.subplot(2, 2, 1)
   plt.axis((0, 1, 0, 1))
-  plt.plot(U0, y, label=f'M0 = {M_r}')
+  plt.plot(U0, y, label=f'Mr = {M_r}', linestyle=styles[i])
   plt.ylabel('y')
   plt.xlabel('U0')
   plt.title('Velocity')
@@ -67,7 +73,7 @@ for M_r in M:
   # Temperature
   plt.subplot(2, 2, 2)
   plt.axis((1, 1.6, 0, 1))
-  plt.plot(T, y, label=f'M0 = {M_r}')
+  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i])
   plt.ylabel('y')
   plt.xlabel('T0')
   plt.title('Temperature')
@@ -76,7 +82,7 @@ for M_r in M:
   # Specific volume (xi)
   plt.subplot(2, 2, 3)
   plt.axis((1, 1.6, 0, 1))
-  plt.plot(T, y, label=f'M0 = {M_r}')
+  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i])
   plt.ylabel('y')
   plt.xlabel('Xi0')
   plt.title('Specific volume')
@@ -84,8 +90,8 @@ for M_r in M:
 
   # Viscosity coefficient (eta)
   plt.subplot(2, 2, 4)
-  plt.axis((1, 1.5, 0, 1))
-  plt.plot(eta, y, label=f'M0 = {M_r}')
+  plt.axis((0.9, 1.5, 0, 1))
+  plt.plot(eta, y, label=f'Mr = {M_r}', linestyle=styles[i])
   plt.ylabel('y')
   plt.xlabel('Eta0')
   plt.title('Viscosity coefficient')
