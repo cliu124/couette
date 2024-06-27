@@ -14,11 +14,11 @@ def ode_system(y, state, tau, C, gamma, M_r):
   U0, T = state
   
   # Viscosity
-  eta = T ** (3/2) * (1 + C) / (T + C)
+  eta = T ** (3/2) * (1 + C) / (T + C)    # equation 14
   
   # Derivatives
-  dU0_dy = tau / eta
-  dT_dy = -(Pr / eta) * ((gamma - 1) * M_r**2 * tau * U0)
+  dU0_dy = tau / eta                                        # equation 10
+  dT_dy = -(Pr / eta) * ((gamma - 1) * M_r**2 * tau * U0)   # equation 11
   
   return np.vstack((dU0_dy, dT_dy))
 
@@ -42,30 +42,49 @@ def solve(tau_guess, C, gamma, M_r, Tr):
     raise ValueError("Failed to find a solution")
   
   T = sol.y[1]
-  T += (1 - T[-1])    # enforce boundary condition of T0(1) = 1
-  eta = T ** (3/2) * (1 + C) / (T + C)
+  T += (1 - T[-1])                      # enforce boundary condition of T0(1) = 1
+  eta = T ** (3/2) * (1 + C) / (T + C)  # calculate viscosity
+  # xi = 8.3144 * T / (28.97)             # calculate specific volume
 
-  return sol.x, sol.y[0], T, eta  # y, U0, T
+  return sol.x, sol.y[0], T, eta#, xi  # y, U0, T, eta, xi
 
+plt.figure(figsize=(8,7))
+
+# Plot curves for each mach number
 for M_r in M:
   Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature  
   y, U0, T, eta = solve(tau_guess, C, gamma, M_r, Tr)    # solve
 
+  # Velocity
   plt.subplot(2, 2, 1)
+  plt.axis((0, 1, 0, 1))
   plt.plot(U0, y, label=f'M0 = {M_r}')
   plt.ylabel('y')
   plt.xlabel('U0')
   plt.title('Velocity')
   plt.legend()
 
+  # Temperature
   plt.subplot(2, 2, 2)
+  plt.axis((1, 1.6, 0, 1))
   plt.plot(T, y, label=f'M0 = {M_r}')
   plt.ylabel('y')
   plt.xlabel('T0')
   plt.title('Temperature')
   plt.legend()
   
+  # Specific volume (xi)
+  plt.subplot(2, 2, 3)
+  plt.axis((1, 1.6, 0, 1))
+  plt.plot(eta, y, label=f'M0 = {M_r}')
+  plt.ylabel('y')
+  plt.xlabel('Xi0')
+  plt.title('Specific volume')
+  plt.legend()
+
+  # Viscosity coefficient (eta)
   plt.subplot(2, 2, 4)
+  plt.axis((1, 1.5, 0, 1))
   plt.plot(eta, y, label=f'M0 = {M_r}')
   plt.ylabel('y')
   plt.xlabel('Eta0')
