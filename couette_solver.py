@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.integrate import solve_bvp
+from scipy.io import savemat
 import matplotlib.pyplot as plt
 
 # Constants
@@ -40,7 +41,7 @@ def solve(tau_guess, C, gamma, M_r, Tr):
     y,
     X_guess,
     max_nodes = len(y) * 100,
-    tol = 1e-12,
+    tol = 1e-10,
     verbose = 2
   )
   
@@ -52,9 +53,8 @@ def solve(tau_guess, C, gamma, M_r, Tr):
   T = sol.y[1]
   T += (1 - T[-1])                      # enforce boundary condition of T0(1) = 1
   eta = T ** (3/2) * (1 + C) / (T + C)  # calculate viscosity
-  xi = T * 8.3144 / (28.97)             # calculate specific volume
 
-  return sol.x, sol.y[0], T, eta, xi  # y, U0, T, eta, xi
+  return sol.x, sol.y[0], T, eta, T  # y, U0, T, eta, xi
 
 plt.figure(figsize=(8,7))
 
@@ -63,6 +63,16 @@ styles = ['solid', 'dashed', 'dotted']
 for i, M_r in enumerate(M):
   Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature  
   y, U0, T, eta, xi = solve(tau_guess, C, gamma, M_r, Tr)    # solve
+
+  data = {
+    "y": y,
+    "U0": U0,
+    "T": T,
+    "Eta": eta,
+    "Xi": xi
+  }
+  
+  savemat(f'.\couette\export\couette_m{M_r}.mat', data)
 
   # Velocity
   plt.subplot(2, 2, 1)
