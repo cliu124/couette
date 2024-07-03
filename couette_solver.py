@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 Pr = 0.72         # value for air
 gamma = 1.4       # value for air
 C = 0.5           # given
-tau_guess = 1.5     # Initial guess
-M = [0.5, 1, 2]   # Mach numbers to test
+tau_guess = 2     # Initial guess 1.5
+M = [0.2, 0.5, 1, 2, 5]   # Mach numbers to test: subsonic, transonic, supersonic, hypersonic
 
 # Define system of equations
 def ode_system(y, inputs, tau, C, gamma, M_r):
@@ -40,7 +40,7 @@ def solve(tau_guess, C, gamma, M_r, Tr):
     lambda Xa, Xb: bc(Xa, Xb, tau_guess, C, gamma, M_r),
     y,
     X_guess,
-    max_nodes = len(y) * 100,
+    max_nodes = 10000,
     tol = 1e-10,
     verbose = 2
   )
@@ -59,25 +59,31 @@ def solve(tau_guess, C, gamma, M_r, Tr):
 plt.figure(figsize=(8,7))
 
 styles = ['solid', 'dashed', 'dotted']
+
+data = {
+  "M_r": M,
+  "y": [],
+  "U0": [],
+  "T": [],
+  "Eta": [],
+  "Xi": []
+}
+
 # Plot curves for each mach number
 for i, M_r in enumerate(M):
   Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature  
   y, U0, T, eta, xi = solve(tau_guess, C, gamma, M_r, Tr)    # solve
-
-  data = {
-    "y": y,
-    "U0": U0,
-    "T": T,
-    "Eta": eta,
-    "Xi": xi
-  }
   
-  savemat(f'.\couette\export\couette_m{M_r}.mat', data)
+  data["y"].append(y)
+  data["U0"].append(U0)
+  data["T"].append(T)
+  data["Eta"].append(eta)
+  data["Xi"].append(xi)
 
   # Velocity
   plt.subplot(2, 2, 1)
   plt.axis((0, 1, 0, 1))
-  plt.plot(U0, y, label=f'Mr = {M_r}', linestyle=styles[i])
+  plt.plot(U0, y, label=f'Mr = {M_r}', linestyle=styles[i % 3])
   plt.ylabel('y')
   plt.xlabel('U0')
   plt.title('Velocity')
@@ -85,30 +91,32 @@ for i, M_r in enumerate(M):
 
   # Temperature
   plt.subplot(2, 2, 2)
-  plt.axis((1, 1.6, 0, 1))
-  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i])
+  plt.axis((1, max(T) * 1.1, 0, 1)) # [1, 1.6]
+  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i % 3])
   plt.ylabel('y')
   plt.xlabel('T0')
   plt.title('Temperature')
-  plt.legend()
+  # plt.legend()
   
   # Specific volume (xi)
   plt.subplot(2, 2, 3)
-  plt.axis((1, 1.6, 0, 1))
-  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i])
+  plt.axis((1, max(xi) * 1.1, 0, 1)) # [1, 1.6]
+  plt.plot(T, y, label=f'Mr = {M_r}', linestyle=styles[i % 3])
   plt.ylabel('y')
   plt.xlabel('Xi0')
   plt.title('Specific volume')
-  plt.legend()
+  # plt.legend()
 
   # Viscosity coefficient (eta)
   plt.subplot(2, 2, 4)
-  plt.axis((0.9, 1.5, 0, 1))
-  plt.plot(eta, y, label=f'Mr = {M_r}', linestyle=styles[i])
+  plt.axis((0.9, max(eta) * 1.1, 0, 1)) # [0.1, 1.5]
+  plt.plot(eta, y, label=f'Mr = {M_r}', linestyle=styles[i % 3])
   plt.ylabel('y')
   plt.xlabel('Eta0')
   plt.title('Viscosity coefficient')
-  plt.legend()
+  # plt.legend()
+
+savemat(f'export/couette_data.mat', data)
 
 plt.tight_layout()
 plt.show()
