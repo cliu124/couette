@@ -8,7 +8,7 @@ Pr = 0.72         # value for air
 gamma = 1.4       # value for air
 C = 0.5           # given
 tau_guess = 2     # Initial guess 1.5
-M = [0.2, 0.5, 1, 2, 5]   # Mach numbers to test: subsonic, transonic, supersonic, hypersonic
+M = [0, 0.2, 0.5, 1, 2] #, 5]   # Mach numbers to test: subsonic, transonic, supersonic, hypersonic
 
 # Define system of equations
 def ode_system(y, inputs, tau, C, gamma, M_r):
