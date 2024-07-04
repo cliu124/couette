@@ -43,7 +43,7 @@ dt = 1e-5
 nt = 5000
 y = np.linspace(0, 1, ny)
 
-values = {}
+data = {}
 
 def calculate(M_r):
     """calculate based on mach number"""
@@ -53,7 +53,7 @@ def calculate(M_r):
     T = np.full(ny, Tr)  # Initial condition for T based on Tr
     tau = tau_guess
     with lock:
-        values[M_r] = time_evolution(U, T, tau, dy, dt, nt, ny, C, gamma, M_r, Pr)
+        data[str(M_r)] = time_evolution(U, T, tau, dy, dt, nt, ny, C, gamma, M_r, Pr)
 
 lock = threading.Lock()
 
@@ -70,7 +70,7 @@ plt.figure(figsize=(16, 8))
 
 # Plot curves for each Mach number
 for i, M_r in enumerate(M):
-    U_history, T_history = values[M_r]
+    U_history, T_history = data[str(M_r)]
     # Plot the results for U
     plt.subplot(2, len(M), i + 1)
     plt.imshow(U_history, aspect='auto', origin='upper', extent=[0, 1, 0, nt * dt], cmap='viridis')
@@ -86,6 +86,8 @@ for i, M_r in enumerate(M):
     plt.title(f'Temperature (Mr={M_r})')
     plt.xlabel('t')
     plt.ylabel('y')
+
+savemat("export/couette_time.mat", data)
 
 plt.tight_layout()
 plt.show()

@@ -116,7 +116,7 @@ for i, M_r in enumerate(M):
   plt.title('Viscosity coefficient')
   # plt.legend()
 
-savemat(f'export/couette_data.mat', data)
+savemat('export/couette_data.mat', data)
 
 plt.tight_layout()
 plt.show()
