@@ -113,3 +113,26 @@ savemat("export/couette_time.mat", data)
 
 plt.tight_layout()
 plt.show()
+
+U_history, T_history = data['1']
+print(U_history)
+for i, n in enumerate(U_history):
+    # Velocity
+    plt.subplot(2, 2, 1)
+    # plt.subplot(2,1,1)
+    plt.axis((0, 1, 0, 5))
+    plt.plot(n, np.linspace(0,1,5000), label=f"Mr = {1}")
+    plt.ylabel("y")
+    plt.xlabel("U0")
+    plt.title("Velocity")
+    # plt.legend()
+
+    # Temperature
+    plt.subplot(2, 2, 2)
+    plt.axis((1, 1.5, 0, 5))  # [1, 1.6]
+    plt.plot(T_history[i], np.linspace(0,1,5000), label=f"Mr = {1}")
+    plt.ylabel("y")
+    plt.xlabel("T0")
+    plt.title("Temperature")
+# plt.legend()
+plt.show()
