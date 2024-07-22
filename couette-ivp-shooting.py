@@ -13,22 +13,24 @@ gamma = 1.4  # value for air
 C = 0.5  # given
 M = np.linspace(0, 10, 101) #[0, 0.2, 0.5, 1, 2, 5] #   # Mach numbers to test
 
+T_r = lambda M: 1 + (gamma - 1) / 2 * Pr * M * M
+
 def ode_system(y, X, tau, C, gamma, M_r):
     """Define the system of ODEs"""
     U0, T = X
     
     # Viscosity
-    eta = np.maximum(T, 1e-10) ** (3 / 2) * (1 + C) / (np.maximum(T, 1e-10) + C)  # equation 14
+    etaRecip = (np.maximum(T, 1e-10) + C) / (np.maximum(T, 1e-10) ** (3 / 2) * (1 + C))  # equation 14
     
     # Derivatives
-    dU0_dy = tau / eta  # equation 10
-    dT_dy = -(Pr / eta) * ((gamma - 1) * M_r**2 * tau * U0)  # equation 11
+    dU0_dy = tau * etaRecip  # equation 10
+    dT_dy = -(Pr * etaRecip) * ((gamma - 1) * M_r * M_r * tau * U0)  # equation 11
     
     return [dU0_dy, dT_dy]
 
 def shoot(tau, C, gamma, M_r):
     """Shooting method"""
-    Tr = 1 + (gamma - 1) / 2 * M_r**2  # Recovery temperature
+    Tr = T_r(M_r)  # Recovery temperature
     y_span = (0, 1)
     X0 = [0, Tr]  # Initial conditions: U0(0) = 0, T(0) = Tr
     
@@ -52,7 +54,7 @@ def solve(C, gamma, M_r):
     print(f"Root found: tau = {tau_solution:.6f}, iterations: {root_result.iterations}")
     
     y_span = (0, 1)
-    X0 = [0, 1 + (gamma - 1) / 2 * M_r**2]
+    X0 = [0, T_r(M_r)]
     sol = solve_ivp(lambda y, X: ode_system(y, X, tau_solution, C, gamma, M_r), y_span, X0, dense_output=True)
     
     y = np.linspace(0, 1, 3001)
