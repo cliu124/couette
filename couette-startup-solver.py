@@ -3,29 +3,30 @@ from time import time
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import root_scalar
+from scipy.io import savemat
 import matplotlib.pyplot as plt
 
 # Constants
 Pr = 0.72  # value for air
 gamma = 1.4  # value for air
 C = 0.5  # given
-M_r = 2.  # Mach number (you can change this)
+M_r = 2.0  # Mach number
 
 f1 = (gamma - 1) * M_r*M_r
 
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
 # Set up spatial grid
-Ny = 501
+Ny = 1001
 y = np.linspace(0, 1, Ny)
 
 # Set up time grid
-t_span = (0, .5)  # Start and end times - 0.5 for mach 2
+t_span = (0, .5)  # Start and end times
 Nt = 1001
 t_eval = np.linspace(*t_span, Nt)  # Times at which to store the solution
 t_diff = t_span[1] - t_span[0]
 
-def solve(C, gamma):
+def solve():
     """Solves steady state ODE system using solve_ivp and root_scalar"""
     
     def ode_system(X, tau):
@@ -80,13 +81,6 @@ def viscosity(T):
     T = np.maximum(T, 0)
     return T ** (3 / 2) * (1 + C) / (T + C)
 
-def diff(y, x):
-    arr = np.zeros_like(y)
-    arr[1:-1] = (y[2:] - y[:-2]) / (x[2:] - x[:-2])
-    arr[0] = (y[1] - y[0]) / (x[1] - x[0])
-    arr[-1] = (y[-1] - y[-2]) / (x[-1] - x[-2])
-    return arr
-
 niter = 0
 
 def pde_system(t, state, y):
@@ -100,16 +94,14 @@ def pde_system(t, state, y):
     # Calculate viscosity
     eta = viscosity(T)
     
-    dy = y[1] - y[0]
-    
-    dUdy = diff(U, y)
-    dTdy = diff(T, y)
+    dUdy = np.gradient(U, y)
+    dTdy = np.gradient(T, y)
 
     tau = eta * dUdy
-    dUdt = diff(tau, y)
+    dUdt = np.gradient(tau, y)
 
     E = f1 * tau * U + eta / Pr * dTdy
-    dTdt = diff(E, y)
+    dTdt = np.gradient(E, y)
 
     # Enforce boundary conditions
     dUdt[0] = 0  # U(0, t) = 0
@@ -152,13 +144,23 @@ print(f'\nDone\nniter: {niter}\nTime taken: {time() - t1}s')
 # Extract U and T from solution
 U_sol = sol.y[:Ny, :]
 T_sol = sol.y[Ny:, :]
-# print(U_sol,U_sol.shape)
+
+matData = {
+    'y': np.rot90([y], 1),
+    't': np.rot90([t_eval], 1),
+    'U_sol': np.rot90(U_sol, 3),
+    'T_sol': np.rot90(T_sol, 3)
+}
+path = f'export/couette_startup_M{M_r}_T{Nt}_Y{Ny}_{hex(round(time()))[2:]}.mat'
+savemat(path, matData)
+print(f'Saved to {path}')
 
 # Plot results
 plt.figure(figsize=(10, 8))
 
 # Get steady state solution
-_, U_exact, T_exact, _ = solve(C, gamma)
+print('Steady state calculation ', end='')
+_, U_exact, T_exact, _ = solve()
 from math import sqrt, floor
 
 # time points to graph - show more detail at small t
@@ -173,7 +175,7 @@ for i in t_points: #range(0, len(t_eval), len(t_eval) // 50):
 plt.plot(U_exact, y, label=f't = inf', linestyle='dotted')
 plt.xlabel('U')
 plt.ylabel('y')
-plt.title(f'Startup Compressible Couette Flow (M = {M_r})')
+plt.title(f'Velocity (M = {M_r})')
 # plt.legend()
 plt.grid(True)
 
@@ -185,11 +187,9 @@ for i in t_points: #range(0, len(t_eval), len(t_eval) // 50):
 plt.plot(T_exact, y, label=f't = inf', linestyle='dotted')
 plt.xlabel('T')
 plt.ylabel('y')
-plt.title(f'Temperature Distribution (M = {M_r})')
+plt.title(f'Temperature')
 # plt.legend()
 plt.grid(True)
-
-plt.tight_layout()
 
 plt.subplot(2,2,3)
 plt.imshow(U_sol, aspect='auto', origin='lower', cmap = 'plasma', extent=[t_eval[0], t_eval[-1], y[0], y[-1]])
@@ -204,4 +204,6 @@ plt.title('Temperature')
 plt.xlabel('Time')
 plt.ylabel('y')
 plt.colorbar(label='T')
+
+plt.tight_layout()
 plt.show()
