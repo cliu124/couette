@@ -11,40 +11,43 @@ from mplcursors import cursor
 Pr = 0.72  # value for air
 gamma = 1.4  # value for air
 C = 0.5  # given
-M = np.linspace(0, 10, 101) #[0, 0.2, 0.5, 1, 2, 5] #   # Mach numbers to test
+# Mach numbers to test
+M = np.linspace(0, 10, 51)
+# M = [0.5, 1, 2] # Mach numbers used in the paper
 
 T_r = lambda M: 1 + (gamma - 1) / 2 * Pr * M * M
 
-def ode_system(y, X, tau, C, gamma, M_r):
-    """Define the system of ODEs"""
-    U0, T = X
-    
-    # Viscosity
-    etaRecip = (np.maximum(T, 1e-10) + C) / (np.maximum(T, 1e-10) ** (3 / 2) * (1 + C))  # equation 14
-    
-    # Derivatives
-    dU0_dy = tau * etaRecip  # equation 10
-    dT_dy = -(Pr * etaRecip) * ((gamma - 1) * M_r * M_r * tau * U0)  # equation 11
-    
-    return [dU0_dy, dT_dy]
-
-def shoot(tau, C, gamma, M_r):
-    """Shooting method"""
-    Tr = T_r(M_r)  # Recovery temperature
-    y_span = (0, 1)
-    X0 = [0, Tr]  # Initial conditions: U0(0) = 0, T(0) = Tr
-    
-    sol = solve_ivp(lambda y, X: ode_system(y, X, tau, C, gamma, M_r), y_span, X0, dense_output=True)
-    
-    return sol.sol(1)[0] - 1  # Return the boundary condition residual
-
 def solve(C, gamma, M_r):
     """Solves ODE system using solve_ivp and root_scalar"""
+    
+    def ode_system(X, tau, C, gamma, M_r):
+        """Define the system of ODEs"""
+        U0, T = X
+        
+        # Viscosity
+        etaRecip = (np.maximum(T, 1e-10) + C) / (np.maximum(T, 1e-10) ** (3 / 2) * (1 + C))  # equation 14
+        
+        # Derivatives
+        dU0_dy = tau * etaRecip  # equation 10
+        dT_dy = -(Pr * etaRecip) * ((gamma - 1) * M_r * M_r * tau * U0)  # equation 11
+        
+        return [dU0_dy, dT_dy]
+    
+    def shoot(tau, C, gamma, M_r):
+        """Shooting method"""
+        Tr = T_r(M_r)  # Recovery temperature
+        y_span = (0, 1)
+        X0 = [0, Tr]  # Initial conditions: U0(0) = 0, T(0) = Tr
+        
+        sol = solve_ivp(lambda y, X: ode_system(X, tau, C, gamma, M_r), y_span, X0, dense_output=True)
+        
+        return sol.sol(1)[0] - 1  # Return the boundary condition residual
+
     tau_guess = 1 + M_r / 2
 
     root_result = root_scalar(lambda tau: shoot(tau, C, gamma, M_r), 
                               method='brentq', 
-                              bracket=[0.1, 10], 
+                              bracket=[0.1, M_r + 1], 
                               x0=tau_guess)
     
     if not root_result.converged:
@@ -55,7 +58,7 @@ def solve(C, gamma, M_r):
     
     y_span = (0, 1)
     X0 = [0, T_r(M_r)]
-    sol = solve_ivp(lambda y, X: ode_system(y, X, tau_solution, C, gamma, M_r), y_span, X0, dense_output=True)
+    sol = solve_ivp(lambda y, X: ode_system(X, tau_solution, C, gamma, M_r), y_span, X0, dense_output=True)
     
     y = np.linspace(0, 1, 3001)
     X = sol.sol(y)
