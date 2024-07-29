@@ -14,6 +14,8 @@ f1 = (gamma - 1) * M_r*M_r
 
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
+epochs = 20#000
+
 def read_data_fn(root_path):
   """Read and preprocess data from the specified root path.
 
@@ -125,7 +127,7 @@ model = pinnstf2.models.PINNModule(net = neural_net,
                                    loss_fn = 'mse',
                                    jit_compile = False)
 
-trainer = pinnstf2.Trainer(max_epochs=20000, check_val_every_n_epoch=1000) # 20000
+trainer = pinnstf2.Trainer(max_epochs=epochs, check_val_every_n_epoch=(epochs / 20)) # 20000
 
 trainer.fit(model=model, datamodule=datamodule)
 
@@ -216,7 +218,7 @@ ax.axis("off")
 
 # Row 0: full
 gs0 = gridspec.GridSpec(1, 2)
-gs0.update(top=1 - 0.06, bottom=1 - 1 / 3, left=0.15, right=0.85, wspace=0)
+gs0.update(top=0.8, bottom=0.4, left=0.15, right=0.85, wspace=0)
 ax = plt.subplot(gs0[:, :])
 
 h = ax.imshow(
@@ -254,7 +256,7 @@ ax.set_title("$U(y, t)$", fontsize=10)
 # U_exact = np.flip(U_exact, 0)
 
 gs1 = gridspec.GridSpec(1, 3)
-gs1.update(top=1 - 1 / 2, bottom=0, left=0.1, right=0.9, wspace=0.5)
+gs1.update(top=0.1, bottom=-0.3, left=0.1, right=0.9, wspace=0.5)
 
 ax = plt.subplot(gs1[0, 0])
 ax.plot(U_exact[:, points[0]], mesh.spatial_domain_mesh[:, points[0], 0], "b-", linewidth=2, label="Exact")
@@ -287,5 +289,5 @@ ax.set_xlim([0, 1])
 ax.set_ylim([0, 1])
 ax.set_title("$t = %.2f$" % (mesh.time_domain[points[2]]), fontsize=10)
 
-savefig("couette-out" + "/fig")
+savefig("PINN/out" + f"/fig-{epochs}")
 
