@@ -17,11 +17,11 @@ f1 = (gamma - 1) * M_r*M_r
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
 # Set up spatial grid
-Ny = 1001
+Ny = 501
 y = np.linspace(0, 1, Ny)
 
 # Set up time grid
-t_span = (0, .5)  # Start and end times
+t_span = (0, .3)  # Start and end times
 Nt = 1001
 t_eval = np.linspace(*t_span, Nt)  # Times at which to store the solution
 t_diff = t_span[1] - t_span[0]
@@ -146,11 +146,13 @@ U_sol = sol.y[:Ny, :]
 T_sol = sol.y[Ny:, :]
 
 matData = {
-    'y': np.rot90([y], 1),
-    't': np.rot90([t_eval], 1),
-    'U_sol': np.rot90(U_sol, 3),
-    'T_sol': np.rot90(T_sol, 3)
+    'y': np.flip(np.rot90([y], 1)),
+    't': np.flip(np.rot90([t_eval], 1)),
+    'U_sol': U_sol, #np.rot90(U_sol, 2),
+    'T_sol': T_sol #np.rot90(T_sol, 2)
 }
+
+print(matData, matData['y'].shape, matData['t'].shape, matData['U_sol'].shape)
 path = f'export/couette_startup_M{M_r}_T{Nt}_Y{Ny}_{hex(round(time()))[2:]}.mat'
 savemat(path, matData)
 print(f'Saved to {path}')
