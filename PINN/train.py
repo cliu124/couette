@@ -1,4 +1,5 @@
 from typing import Dict
+from time import time
 
 import tensorflow as tf
 import numpy as np
@@ -14,7 +15,11 @@ f1 = (gamma - 1) * M_r*M_r
 
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
-epochs = 20#000
+# PINN settings
+epochs = 64000
+N_init = 50        # Number of initial samples
+N_bound = 100       # Number of boundary samples
+N_mesh = 20000    # Number of mesh samples
 
 def read_data_fn(root_path):
   """Read and preprocess data from the specified root path.
@@ -39,37 +44,48 @@ mesh = pinnstf2.data.Mesh(root_dir='export',
                           spatial_domain = spatial_domain,
                           time_domain = time_domain)
 
-N0 = 50
 
 # Sample initial condition
-initial_cond = pinnstf2.data.InitialCondition(mesh = mesh,
-                                      num_sample = N0,
-                                      solution = ['U', 'T'])
-
-# # Initial condition
-# def initial_fun(y):
-#     U_init = np.zeros_like(y)
-#     U_init[-1] = 1
-#     T_init = np.ones_like(y)
-#     T_init[-1] = T_r
-#     return {'U': U_init, 'T': T_init}
-  
-# in_c = pinnstf2.data.InitialCondition(mesh = mesh,
+# initial_cond = pinnstf2.data.InitialCondition(mesh = mesh,
 #                                       num_sample = N0,
-#                                       initial_fun = initial_fun,
 #                                       solution = ['U', 'T'])
 
+# Initial condition
+def initial_fun(y):
+    U_init = np.zeros_like(y)
+    U_init[-1] = 1
+    T_init = np.ones_like(y)
+    T_init[0] = T_r
+    return {'U': U_init, 'T': T_init}
+  
+initial_cond = pinnstf2.data.InitialCondition(mesh = mesh,
+                                            num_sample = N_init,
+                                            initial_fun = initial_fun,
+                                            solution = ['U', 'T'])
+
 # Periodic boundary condition
-N_b = 50
-periodic_bound = pinnstf2.data.PeriodicBoundaryCondition(mesh = mesh,
-                                              num_sample = 50,
-                                              derivative_order = 0,
-                                              solution = ['U', 'T'])
+# boundary_cond = pinnstf2.data.PeriodicBoundaryCondition(mesh = mesh,
+#                                               num_sample = N_b,
+#                                               derivative_order = 0,
+#                                               solution = ['U', 'T'])
+
+def boundary_fun(t):
+    U_lb = np.zeros_like(t)
+    U_ub = np.ones_like(t)
+    T_lb = np.full_like(t, T_r)
+    T_ub = np.ones_like(t)
+    U_bound = np.vstack([U_ub, U_lb])
+    T_bound = np.vstack([T_ub, T_lb])
+    return {'U': U_bound, 'T': T_bound}
+
+boundary_cond = pinnstf2.data.DirichletBoundaryCondition(mesh = mesh,
+                                                          num_sample = N_bound,
+                                                        #   boundary_fun = boundary_fun,
+                                                          solution = ['U', 'T'])
 
 # Collection points and solutions
-N_f = 20000
 mesh_sample = pinnstf2.data.MeshSampler(mesh = mesh,
-                                   num_sample = N_f,
+                                   num_sample = N_mesh,
                                    collection_points = ['f_U', 'f_T'])
 
 # validation data
@@ -113,7 +129,7 @@ def pde_fn(outputs: Dict[str, tf.Tensor],
     return outputs
 
 # Define training dataset
-train_datasets = [mesh_sample, initial_cond, periodic_bound]
+train_datasets = [mesh_sample, initial_cond, boundary_cond]
 # Define validation dataset
 val_dataset = validation_set
 
@@ -127,7 +143,7 @@ model = pinnstf2.models.PINNModule(net = neural_net,
                                    loss_fn = 'mse',
                                    jit_compile = False)
 
-trainer = pinnstf2.Trainer(max_epochs=epochs, check_val_every_n_epoch=(epochs / 20)) # 20000
+trainer = pinnstf2.Trainer(max_epochs=epochs, check_val_every_n_epoch=10) # 20000
 
 trainer.fit(model=model, datamodule=datamodule)
 
@@ -142,9 +158,13 @@ T_exact = mesh.solution["T"]
 U_pred = preds_dict["U"].reshape(U_exact.shape)
 T_pred = preds_dict["T"].reshape(T_exact.shape)
 
-# pinnstf2.utils.plot_schrodinger(mesh, U_pred, train_datasets, val_dataset, "couette-out")
+# accuracy
+U_diff = U_exact - U_pred
+U_rmse = np.sqrt(np.mean(U_diff * U_diff))
+
 import os
 import logging
+import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
@@ -190,19 +210,14 @@ def savefig(filename, crop=True):
 
     if crop:
         plt.savefig(f"{filename}.pdf", bbox_inches="tight", pad_inches=0)
-        plt.savefig(f"{filename}.eps", bbox_inches="tight", pad_inches=0)
+        # plt.savefig(f"{filename}.eps", bbox_inches="tight", pad_inches=0)
     else:
         plt.savefig(f"{filename}.pdf")
-        plt.savefig(f"{filename}.eps")
+        # plt.savefig(f"{filename}.eps")
 
     log.info(f"Image saved at {filename}")
 
-points = [100, 500, 900]
-
-
-# Row 1: u(t,x) slices
-gs1 = gridspec.GridSpec(1, 3)
-gs1.update(top=1 - 1 / 3, bottom=0, left=0.1, right=0.9, wspace=0.5)
+points = [10, 100, 500]
 
 x0, t0, u0 = train_datasets[1][:]
 x_b, t_b, _ = train_datasets[2][:]
@@ -213,18 +228,19 @@ X_ub = np.hstack((x_b[0][:mid], t_b[:mid]))
 X_lb = np.hstack((x_b[0][mid:], t_b[mid:]))
 X_u_train = np.vstack([X0, X_lb, X_ub])
 
-fig, ax = newfig(1.0, 0.9)
+fig, ax = newfig(2, 1)
 ax.axis("off")
 
-# Row 0: full
+# Row 0
+# Full soln
 gs0 = gridspec.GridSpec(1, 2)
-gs0.update(top=0.8, bottom=0.4, left=0.15, right=0.85, wspace=0)
-ax = plt.subplot(gs0[:, :])
+gs0.update(top=0.8, bottom=0.5, left=0.2, right=0.8, wspace=0.35)
+ax = plt.subplot(gs0[0, 0])#[:, :])
 
 h = ax.imshow(
     U_pred, #U_exact,
     interpolation="nearest",
-    cmap="YlGnBu",
+    cmap="plasma", # YlGnBu
     extent=[mesh.lb[1], mesh.ub[1], mesh.lb[0], mesh.ub[0]],
     origin="lower",
     aspect="auto",
@@ -237,8 +253,8 @@ ax.plot(
     X_u_train[:, 1],
     X_u_train[:, 0],
     "kx",
-    label="Data (%d points)" % (X_u_train.shape[0]),
-    markersize=2,
+    label="Data (%d pts)" % (X_u_train.shape[0]),
+    markersize=3,
     clip_on=False,
 )
 line = np.linspace(mesh.spatial_domain_mesh[:].min(), mesh.spatial_domain_mesh[:].max(), 2)[:, None]
@@ -249,45 +265,61 @@ ax.plot(mesh.time_domain[points[2]] * np.ones((2, 1)), line, "k--", linewidth=1)
 
 ax.set_xlabel("$t$")
 ax.set_ylabel("$y$")
-leg = ax.legend(frameon=False, loc=(0.6, -0.5)) #"best")
+leg = ax.legend(frameon=False, loc=(0.6, -0.25)) #"best")
 ax.set_title("$U(y, t)$", fontsize=10)
 
-# Row 1: slices
-# U_exact = np.flip(U_exact, 0)
+# residuals
+ax = plt.subplot(gs0[0, 1])#[:, :])
 
-gs1 = gridspec.GridSpec(1, 3)
-gs1.update(top=0.1, bottom=-0.3, left=0.1, right=0.9, wspace=0.5)
+mpl.colors.Normalize(vmin=-1, vmax=1)
+h2 = ax.imshow(
+    U_diff,
+    interpolation="nearest",
+    cmap="seismic", # YlGnBu
+    extent=[mesh.lb[1], mesh.ub[1], mesh.lb[0], mesh.ub[0]],
+    origin="lower",
+    aspect="auto",
+    vmin=-1,
+    vmax=1
+)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+fig.colorbar(h2, cax=cax)
 
-ax = plt.subplot(gs1[0, 0])
-ax.plot(U_exact[:, points[0]], mesh.spatial_domain_mesh[:, points[0], 0], "b-", linewidth=2, label="Exact")
-ax.plot(U_pred[:, points[0]], mesh.spatial_domain_mesh[:, points[0], 0], "r--", linewidth=2, label="Prediction")
+ax.set_xlabel("$t$")
 ax.set_ylabel("$y$")
-ax.set_xlabel("$U(y, t)$")
-ax.set_title("$t = %.2f$" % (mesh.time_domain[points[0]]), fontsize=10)
-ax.axis("square")
-ax.set_xlim([0, 1])
-ax.set_ylim([0, 1])
+ax.set_title(f"Residuals; RMSE={U_rmse:.4f}", fontsize=10)
 
-ax = plt.subplot(gs1[0, 1])
-ax.plot(U_exact[:, points[1]], mesh.spatial_domain_mesh[:, points[1], 0], "b-", linewidth=2, label="Exact")
-ax.plot(U_pred[:, points[1]], mesh.spatial_domain_mesh[:, points[1], 0], "r--", linewidth=2, label="Prediction")
-ax.set_ylabel("$y$")
-ax.set_xlabel("$U(y, t)$")
-ax.axis("square")
-ax.set_xlim([0, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$t = %.2f$" % (mesh.time_domain[points[1]]), fontsize=10)
-ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.8), ncol=5, frameon=False)
+# Row 1: Slices
+# Row 2: Slice residuals
 
-ax = plt.subplot(gs1[0, 2])
-ax.plot(U_exact[:, points[2]], mesh.spatial_domain_mesh[:, points[2], 0], "b-", linewidth=2, label="Exact")
-ax.plot(U_pred[:, points[2]], mesh.spatial_domain_mesh[:, points[2], 0], "r--", linewidth=2, label="Prediction")
-ax.set_ylabel("$y$")
-ax.set_xlabel("$U(y, t)$")
-ax.axis("square")
-ax.set_xlim([0, 1])
-ax.set_ylim([0, 1])
-ax.set_title("$t = %.2f$" % (mesh.time_domain[points[2]]), fontsize=10)
+gs1 = gridspec.GridSpec(1, len(points))
+gs1.update(top=0.45, bottom=0, left=0.2, right=0.8, wspace=0.35)
 
-savefig("PINN/out" + f"/fig-{epochs}")
+gs2 = gridspec.GridSpec(1, len(points))
+gs2.update(top=-0.05, bottom=-0.2, left=0.2, right=0.8, wspace=0.35)
+
+for i, point in enumerate(points):
+    ax1 = plt.subplot(gs1[0, i])
+    ax1.plot(U_exact[:, point], mesh.spatial_domain_mesh[:, point, 0], "b-", linewidth=2, label="Exact")
+    ax1.plot(U_pred[:, point], mesh.spatial_domain_mesh[:, point, 0], "r--", linewidth=2, label="Prediction")
+    ax1.set_ylabel("$y$")
+    ax1.set_xlabel("$U$")
+    ax1.set_title("$t = %.2f$" % (mesh.time_domain[point]), fontsize=10)
+    ax1.axis("square")
+    ax1.set_xlim([0, 1])
+    ax1.set_ylim([0, 1])
+    
+    ax2 = plt.subplot(gs2[0, i])
+    ax2.plot(mesh.spatial_domain_mesh[:, point, 0], U_diff[:, point], "g--", linewidth=2, label="Residual")
+    # ax2.set_title("Residuals", fontsize=10)
+    ax2.set_xlim([0, 1])
+    ax2.set_ylim([-1, 1])
+    if i == len(points) - 1:
+        ax1.legend(loc="upper center", bbox_to_anchor=(0, -0.2), ncol=5, frameon=False)
+        ax2.legend(loc="upper center", bbox_to_anchor=(0, -0.25), ncol=5, frameon=False)
+
+name = f"/fig-{epochs}-{round(time())}"
+savefig("PINN/out" + name)
+print(f"Saved to {name}")
 
