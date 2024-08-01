@@ -1,4 +1,4 @@
-# --------- tensorflow-dml --------- #
+# --------- tensorflow --------- #
 tensorflow
 
 # --------- hydra --------- #
