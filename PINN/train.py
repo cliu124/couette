@@ -16,7 +16,7 @@ f1 = (gamma - 1) * M_r*M_r
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
 # PINN settings
-epochs = 4000      # 16000 good balance between time and accuracy
+epochs = 16000      # 16000 good balance between time and accuracy
 N_init = 50        # Number of initial samples
 N_bound = 100       # Number of boundary samples
 N_mesh = 20000    # Number of mesh samples
@@ -87,7 +87,7 @@ validation_set = pinnstf2.data.MeshSampler(mesh = mesh,
                                     solution = ["U", "T"])
 
 # define NN
-neural_net = pinnstf2.models.FCN(layers = [2, 100, 100, 100, 100, 2],
+neural_net = pinnstf2.models.FCN(layers = [2, 100, 100, 100, 100, 100, 2], # added extra 100 layer
                           output_names = ["U", "T"],
                           lb=mesh.lb,
                           ub=mesh.ub)
@@ -304,7 +304,7 @@ def plot(vars):
             ax1.set_ylabel("$y$")
             ax1.set_xlabel("$U$")
             ax1.set_title("$t = %.2f$" % (mesh.time_domain[point]), fontsize=10)
-            ax1.axis("square")
+            # ax1.axis("square")
             ax1.set_xlim([min(exact[:, point]), max(exact[:, point])])
             ax1.set_ylim([min(mesh.spatial_domain_mesh[:, point, 0]), max(mesh.spatial_domain_mesh[:, point, 0])])
             

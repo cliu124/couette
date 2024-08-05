@@ -6,13 +6,16 @@ from scipy.optimize import root_scalar
 from scipy.io import savemat
 import matplotlib.pyplot as plt
 
+# whether to export data to a mat file
+savedata = False
+
 # Constants
 Pr = 0.72  # value for air
 gamma = 1.4  # value for air
 C = 0.5  # given
 M_r = 2.0  # Mach number
 
-f1 = (gamma - 1) * M_r*M_r
+f1 = (gamma - 1) * M_r * M_r
 
 T_r = 1 + f1 / 2 * Pr  # Recovery temperature
 
@@ -21,7 +24,7 @@ Ny = 501
 y = np.linspace(0, 1, Ny)
 
 # Set up time grid
-t_span = (0, .3)  # Start and end times
+t_span = (0, .5)  # Start and end times, default (0, 0.5)
 Nt = 1001
 t_eval = np.linspace(*t_span, Nt)  # Times at which to store the solution
 t_diff = t_span[1] - t_span[0]
@@ -55,7 +58,7 @@ def solve():
 
     root_result = root_scalar(lambda tau: shoot(tau), 
                               method='brentq', 
-                              bracket=[0.1, M_r + 1], 
+                              bracket=[0.1, gamma * (M_r + 1)], 
                               x0=tau_guess)
     
     if not root_result.converged:
@@ -104,12 +107,12 @@ def pde_system(t, state, y):
     dTdt = np.gradient(E, y)
 
     # Enforce boundary conditions
-    dUdt[0] = 0  # U(0, t) = 0
+    dUdt[0] = 0   # U(0, t) = 0
     dUdt[-1] = 0  # U(1, t) = 1
-    dTdt[0] = 0  # T(0, t) = T_r
+    dTdt[0] = 0   # T(0, t) = T_r
     dTdt[-1] = 0  # T(1, t) = 1
     
-    print(f'\rSolution progress: {(100 * (t - t_span[0]) / (t_diff)):.2f}%, t={t:.10f}', end='')
+    print(f'\rSolution progress: {(100 * (t - t_span[0]) / (t_diff)):.2f}%, t={t:.10f}, niter={niter}', end='')
     niter += 1
 
     return np.concatenate((dUdt, dTdt))
@@ -152,10 +155,10 @@ matData = {
     'T_sol': T_sol #np.rot90(T_sol, 2)
 }
 
-print(matData, matData['y'].shape, matData['t'].shape, matData['U_sol'].shape)
-path = f'export/couette_startup_M{M_r}_T{Nt}_Y{Ny}_{hex(round(time()))[2:]}.mat'
-savemat(path, matData)
-print(f'Saved to {path}')
+if savedata:
+    path = f'export/couette_startup_M{M_r}_T{Nt}_Y{Ny}_{hex(round(time()))[2:]}.mat'
+    savemat(path, matData)
+    print(f'Saved to {path}')
 
 # Plot results
 plt.figure(figsize=(10, 8))
@@ -163,15 +166,17 @@ plt.figure(figsize=(10, 8))
 # Get steady state solution
 print('Steady state calculation ', end='')
 _, U_exact, T_exact, _ = solve()
+
 from math import sqrt, floor
 
 # time points to graph - show more detail at small t
-t_points = (np.linspace(0, floor(sqrt(len(t_eval))), 50) ** 2 + 1).astype(int)
+t_points = (np.linspace(0, floor(sqrt(len(t_eval))), 50) ** 2 + 1).astype(int)[::2]
+# t_points = list(range(0, len(t_eval), len(t_eval) // 50))
 t_points[0] = 0
 
 plt.subplot(2, 2, 1)
 # Plot startup
-for i in t_points: #range(0, len(t_eval), len(t_eval) // 50):
+for i in t_points:
     plt.plot(U_sol[:, i], y, label=f't = {t_eval[i]:.2f}')
 # Plot steady state
 plt.plot(U_exact, y, label=f't = inf', linestyle='dotted')
@@ -183,7 +188,7 @@ plt.grid(True)
 
 plt.subplot(2, 2, 2)
 # Plot startup
-for i in t_points: #range(0, len(t_eval), len(t_eval) // 50):
+for i in t_points:
     plt.plot(T_sol[:, i], y, label=f't = {t_eval[i]:.2f}')
 # Plot steady state
 plt.plot(T_exact, y, label=f't = inf', linestyle='dotted')

@@ -7,12 +7,15 @@ from scipy.io import savemat
 import matplotlib.pyplot as plt
 from mplcursors import cursor
 
+# whether to export data to a mat file
+savedata = False
+
 # Constants
 Pr = 0.72  # value for air
 gamma = 1.4  # value for air
 C = 0.5  # given
 # Mach numbers to test
-M = np.linspace(0, 10, 51)
+M = [0.5,1,2,5,10,20] #np.linspace(0, 10, 51)
 # M = [0.5, 1, 2] # Mach numbers used in the paper
 
 T_r = lambda M: 1 + (gamma - 1) / 2 * Pr * M * M
@@ -47,7 +50,7 @@ def solve(C, gamma, M_r):
 
     root_result = root_scalar(lambda tau: shoot(tau, C, gamma, M_r), 
                               method='brentq', 
-                              bracket=[0.1, M_r + 1], 
+                              bracket=[0.1, gamma * (M_r + 1)], 
                               x0=tau_guess)
     
     if not root_result.converged:
@@ -69,8 +72,8 @@ def solve(C, gamma, M_r):
     return y, U0, T, eta, T
 
 # Main calculation and plotting code
-plt.figure(figsize=(12, 5)) # 8, 7
-styles = ["solid", "dashed", "dotted"]
+plt.figure(figsize=(10, 4)) # 8, 7
+styles = ["solid", "dashed"] #, "dotted"]
 data = {"y": [], "M_r": [M], "U0": [], "T": [], "eta": [], "xi": []}
 
 for i, M_r in enumerate(M):
@@ -94,12 +97,12 @@ for i, M_r in enumerate(M):
     plt.ylabel("y")
     plt.xlabel("U0")
     plt.title("Velocity")
-    # plt.legend()
+    if len(M) <= 10: plt.legend()
     
     # Temperature
     plt.subplot(1, 2, 2)
     plt.axis((1, max(T) * 1.1, 0, 1))
-    plt.plot(T, y, label=f"Mr = {M_r}", linestyle=styles[i % 3])
+    plt.plot(T, y, label=f"Mr = {M_r}", linestyle=styles[i % len(styles)])
     plt.ylabel("y")
     plt.xlabel("T0")
     plt.title("Temperature")
@@ -120,7 +123,7 @@ for i, M_r in enumerate(M):
     # plt.xlabel("Eta0")
     # plt.title("Viscosity coefficient")
 
-savemat(f"export/ivp_couette_data_{hex(round(time.time()))[2:]}.mat", data)
+if savedata: savemat(f"export/ivp_couette_data_{hex(round(time.time()))[2:]}.mat", data)
 
 cursor(hover=True)
 plt.tight_layout()

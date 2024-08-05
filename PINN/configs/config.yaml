@@ -1,0 +1,99 @@
+defaults:
+  - train
+  - _self_
+
+N0: 50
+N_b: 50
+N_f: 20_000
+
+time_domain:
+  _target_: pinnstf2.data.TimeDomain
+  t_interval: [0, 0.5]
+  t_points: 1001
+
+spatial_domain:
+  _target_: pinnstf2.data.Interval
+  x_interval: [0, 1]
+  shape: [501, 1]
+
+mesh:
+  _target_: pinnstf2.data.Mesh
+  root_dir: export
+  read_data_fn: ???
+  ub: [1, 0.5]
+  lb: [0, 0.0]
+
+train_datasets:
+  - mesh_sampler:
+      _target_: pinnstf2.data.MeshSampler
+      _partial_: true
+      num_sample: ${N_f}
+      collection_points:
+        - f_U
+        - f_T
+
+  - initial_condition:
+      _target_: pinnstf2.data.InitialCondition
+      _partial_: true
+      num_sample: ${N0}
+      solution:
+        - U
+        - T
+
+  - dirichlet_boundary_condition:
+      _target_: pinnstf2.data.DirichletBoundaryCondition
+      _partial_: true
+      num_sample: ${N_b}
+      solution:
+        - U
+        - T
+
+val_dataset:
+  - mesh_sampler:
+      _target_: pinnstf2.data.MeshSampler
+      _partial_: true
+      solution:
+        - U
+        - T
+
+pred_dataset:
+  - mesh_sampler:
+      _target_: pinnstf2.data.MeshSampler
+      _partial_: true
+      solution:
+        - U
+        - T
+
+net:
+  _target_: pinnstf2.models.FCN
+  layers: [2, 100, 100, 100, 100, 2]
+  output_names:
+    - U
+    - T
+
+trainer:
+  max_epochs: 4000
+  check_val_every_n_epoch: 10
+
+model:
+  loss_fn: mse
+  jit_compile: false
+
+train: true
+test: false
+val: true
+optimized_metric:
+  error:
+    - U
+    - T
+
+plotting:
+  _target_: pinnstf2.utils.plot_couette
+  _partial_: true
+
+seed: 1234
+task_name: couette
+
+hydra:
+  searchpath:
+    - pkg://pinnstf2/conf
